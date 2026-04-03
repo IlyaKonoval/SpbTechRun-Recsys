@@ -589,6 +589,10 @@ pair_feedback_stats (main_product_id, recommended_product_id, positive_count, ne
 
 ![Эволюция качества ML](img/evolution.png)
 
+### Offline Evaluation
+
+Формальная оценка всех подходов — в разделе [Offline Evaluation: сравнение моделей](#offline-evaluation-сравнение-моделей).
+
 ---
 
 ## Структура базы данных
@@ -681,14 +685,66 @@ search_outbox (id, entity_type, entity_id, operation, payload JSONB, processed, 
 
 ---
 
+## Offline Evaluation: сравнение моделей
+
+Для формальной оценки качества проведён offline evaluation на данных с graded relevance (0/1/2) из пользовательского фидбека и совместных покупок. Данные разбиты по `main_product_id` (60% train / 20% val / 20% test), каждый test-запрос оценивается на пуле из 100 кандидатов.
+
+### Сравнение 5 моделей
+
+| Модель | NDCG@5 | NDCG@10 | MAP@10 | MRR | HR@10 |
+|--------|--------|---------|--------|-----|-------|
+| **CatBoost (YetiRank)** | **0.724** | **0.724** | **0.724** | **0.724** | **0.725** |
+| Formula Scoring | 0.720 | 0.720 | 0.725 | 0.725 | 0.725 |
+| FAISS Cosine | 0.458 | 0.463 | 0.453 | 0.455 | 0.502 |
+| Popularity | 0.027 | 0.038 | 0.026 | 0.031 | 0.077 |
+| Random | 0.026 | 0.036 | 0.024 | 0.029 | 0.076 |
+
+**Статистическая значимость** (Wilcoxon signed-rank test, CatBoost vs baseline):
+- vs Random: p < 0.001 ***
+- vs Popularity: p < 0.001 ***
+- vs FAISS Cosine: p < 0.001 ***
+- vs Formula Scoring: p = 0.008 **
+
+> CatBoost статистически значимо превосходит все бейзлайны включая Formula Scoring. LightFM не включён (не собирается на Windows).
+
+### Анализ важности признаков (SHAP)
+
+SHAP-анализ (TreeExplainer) на обучающей выборке показал вклад каждой группы признаков:
+
+| Группа признаков | Mean |SHAP| | Доля |
+|-----------------|------------|------|
+| **Фидбек** | 2.88 | 40.9% |
+| **Категорийные** | 2.33 | 33.1% |
+| **Семантические** | 0.96 | 13.6% |
+| **Совместные покупки** | 0.84 | 11.9% |
+| **Ценовые** | 0.10 | 1.4% |
+| Популярность | < 0.01 | — |
+| Контекст корзины | 0.00 | — |
+
+Топ-3 признака: `same_category` (2.28), `pair_feedback_positive` (1.72), `pair_feedback_approval_rate` (0.76).
+
+**Ablation study** (retrain CatBoost без одной группы → ΔNDCG@10):
+- Без фидбека: −0.002 (самая важная группа)
+- Без совместных покупок: −0.001
+- Остальные группы: минимальное влияние при текущем объёме данных
+
+> Контекст корзины = 0 в offline evaluation, т.к. корзина недоступна в офлайне. В online-режиме вклад будет другим.
+
+Подробности: [`recommendations/notebooks/evaluation_pipeline.ipynb`](recommendations/notebooks/evaluation_pipeline.ipynb), [`recommendations/notebooks/feature_analysis.ipynb`](recommendations/notebooks/feature_analysis.ipynb).
+
+<img src="recommendations/notebooks/figures/feature_analysis_hero.png" width="700" />
+
+---
+
 ## Метрики качества
 
 ### ML-модель
 
 | Метрика | Значение | Описание |
 |---------|----------|----------|
-| NDCG@10 | 0.70+ | Качество ранжирования топ-10 |
-| AUC | 0.86+ | Способность отличать позитивные от негативных |
+| NDCG@10 | **0.724** | Качество ранжирования топ-10 (offline eval) |
+| Wilcoxon p-value | **0.008** | CatBoost vs Formula Scoring |
+| Признаков | 39 | В 7 группах |
 | Inference | < 50ms | Время ранжирования 100 кандидатов |
 
 ### Производительность системы
@@ -717,12 +773,16 @@ SpbTechRun/
 │   └── migrations/               # SQL-миграции
 │
 ├── recommendations/              # Python ML-сервис
-│   └── app/
-│       ├── api/                  # FastAPI роуты
-│       ├── services/             # Логика рекомендаций
-│       ├── ml/                   # CatBoost, Feature Extractor
-│       ├── core/                 # Эмбеддинги, конфиг
-│       └── db/                   # SQLAlchemy
+│   ├── app/
+│   │   ├── api/                  # FastAPI роуты
+│   │   ├── services/             # Логика рекомендаций
+│   │   ├── ml/                   # CatBoost, Feature Extractor
+│   │   ├── core/                 # Эмбеддинги, конфиг
+│   │   └── db/                   # SQLAlchemy
+│   └── notebooks/
+│       ├── evaluation_pipeline.ipynb  # Offline eval: 5 моделей, метрики, Wilcoxon
+│       ├── feature_analysis.ipynb     # SHAP, ablation study, feature importance
+│       └── figures/                   # Графики (PNG 300 DPI + SVG)
 │
 ├── frontend/                     # React приложение
 │   └── src/
