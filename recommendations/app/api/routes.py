@@ -7,7 +7,7 @@ from ..db import get_session, queries
 from ..services.scenarios import scenarios_service
 from ..services.product_recommender import product_recommender
 from ..services.scenario_recommender import scenario_recommender
-from ..ml.catboost_ranker import catboost_ranker
+from ..ml.ensemble_ranker import ensemble_ranker
 from .schemas import (
     ProductRecommendationsResponse,
     ScenarioResponse,
@@ -314,7 +314,7 @@ async def train_catboost_model(
     - min_feedback_count: минимум фидбеков для включения пары (1-20)
     """
     try:
-        metadata = await catboost_ranker.train_model(
+        metadata = await ensemble_ranker.train_model(
             session=session,
             iterations=iterations,
             learning_rate=learning_rate,
@@ -324,7 +324,7 @@ async def train_catboost_model(
 
         return {
             "success": True,
-            "message": "Model trained successfully",
+            "message": "Ensemble trained successfully",
             "metadata": metadata,
         }
 
@@ -346,7 +346,7 @@ async def get_model_info():
     - Метрики качества
     - Топ важных признаков
     """
-    return catboost_ranker.get_model_info()
+    return ensemble_ranker.get_model_info()
 
 
 @router.get("/recommendations/{product_id}/with-ml")

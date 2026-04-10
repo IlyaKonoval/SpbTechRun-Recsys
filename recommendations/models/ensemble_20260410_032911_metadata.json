@@ -1,0 +1,35 @@
+{
+  "version": "20260410_032911",
+  "trained_at": "2026-04-10T03:29:11.405355",
+  "train_samples": 9820,
+  "val_samples": 2448,
+  "metrics": {
+    "catboost": {
+      "ndcg@10": 0.9488356517306284
+    },
+    "mlp": {
+      "ndcg@10": 0.9486392386360004
+    },
+    "lightgbm": {
+      "ndcg@10": 0.9484869061675909
+    },
+    "ensemble": {
+      "ndcg@10": 0.9488356517306284,
+      "weights": {
+        "catboost": 0.6,
+        "mlp": 0.0,
+        "lightgbm": 0.4
+      }
+    }
+  },
+  "weights": {
+    "catboost": 0.6,
+    "mlp": 0.0,
+    "lightgbm": 0.4
+  },
+  "models": {
+    "catboost": true,
+    "mlp": true,
+    "lightgbm": true
+  }
+}

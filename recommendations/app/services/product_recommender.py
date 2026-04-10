@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..core.embeddings import cosine_similarity
 from ..db import queries
 from .scenarios import scenarios_service
-from ..ml.catboost_ranker import catboost_ranker
+from ..ml.ensemble_ranker import ensemble_ranker
 
 logger = logging.getLogger(__name__)
 
@@ -89,10 +89,10 @@ class ProductRecommender:
             )
 
         ranking_method = "formula"
-        if use_ml and catboost_ranker.model and recommendations:
+        if use_ml and ensemble_ranker.is_ready and recommendations:
             try:
                 candidates = [rec["product"] for rec in recommendations]
-                ranked_candidates = await catboost_ranker.rank_candidates(
+                ranked_candidates = await ensemble_ranker.rank_candidates(
                     main_product=product,
                     candidates=candidates,
                     session=session,
@@ -106,7 +106,7 @@ class ProductRecommender:
                             break
 
                 recommendations.sort(key=lambda x: x["score"], reverse=True)
-                ranking_method = "catboost"
+                ranking_method = "ensemble"
 
             except Exception as e:
                 logger.warning(f"ML ranking failed, fallback to formula: {e}")
