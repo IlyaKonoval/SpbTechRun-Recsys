@@ -1,0 +1,5 @@
+{
+  "catboost": 0.6,
+  "mlp": 0.0,
+  "lightgbm": 0.4
+}
